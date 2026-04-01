@@ -1,0 +1,6 @@
+- https://www.geeksforgeeks.org/machine-learning/kullback-leibler-divergence/  
+about KL divergence, which is a measure of how one probability distribution diverges from a second, expected probability distribution. It is often used in machine learning and statistics to compare two distributions. The KL divergence is defined as:
+KL(P || Q) = Σ P(x) log(P(x) / Q(x))
+where P and Q are the two probability distributions being compared, and the sum is taken over all possible outcomes x. The KL divergence is always non-negative and is zero if and only if P and Q are the same distribution. It is important to note that KL divergence is not symmetric, meaning that KL(P || Q) is not necessarily equal to KL(Q || P). This is because it measures the divergence of P from Q, and not the other way around. In practice, KL divergence is often used in various applications such as in variational inference, where it is used to measure the difference
+- https://www.geeksforgeeks.org/machine-learning/understanding-logistic-regression/  
+- https://www.cs.rice.edu/~as143/COMP642_Spring22/Scribes/Lect5  
