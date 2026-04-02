@@ -1,3 +1,6 @@
+# TODO: add possibility to verify the correctnes of the model 
+# TODO: test the code with real data
+
 import numpy as np
 
 class LogisticRegressionModel:
