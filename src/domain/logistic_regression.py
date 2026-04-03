@@ -12,7 +12,7 @@ class LogisticRegressionModel:
         bias: shape (n_classes,). Set after fit().
         mean: shape (n_features,). Set after fit(). Used for feature normalization.
         std: shape (n_features,). Set after fit(). Used for feature normalization.
-        class_labels: Sorted unique class names. shape (n_classes,). Set after fit().
+        labels: Sorted unique class names. shape (n_classes,). Set after fit().
     """
 
     def __init__(self, learning_rate: float = 0.01, num_iterations: int = 1000) -> None:
@@ -22,7 +22,7 @@ class LogisticRegressionModel:
         self.bias: np.ndarray | None = None
         self.mean: np.ndarray | None = None
         self.std: np.ndarray | None = None
-        self.class_labels: np.ndarray | None = None
+        self.labels: np.ndarray | None = None
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """
@@ -39,21 +39,21 @@ class LogisticRegressionModel:
         n_samples, n_features = X.shape
 
         # Initialize parameters
-        self.mean = np.mean(X, axis=0)
-        self.std = np.std(X, axis=0)
-        self.class_labels = np.unique(y)
-        self.weights = np.zeros((n_features, len(self.class_labels)))
-        self.bias = np.zeros(len(self.class_labels))
+        self.mean, self.std = np.mean(X, axis=0), np.std(X, axis=0)
+        self.labels = np.unique(y)
+        self.weights = np.zeros((n_features, len(self.labels)))
+        self.bias = np.zeros(len(self.labels))
 
         # Normalize features and convert labels to binary matrix for multi-class classification
         X = self._normalization(X)
-        y = (y.reshape(n_samples, 1) == self.class_labels).astype(int)
+        y = (y.reshape(n_samples, 1) == self.labels).astype(int)
 
         # Gradient descent loop
         for _ in range(self.num_iterations):
-            weight_gradient, bias_gradient = self._calculate_learning_step(X, y)
+            probabilities = self._compute_probabilities(X)
+            weight_gradient, bias_gradient = self._calculate_learning_step(X, y, probabilities)
 
-            self.weights -= self.learning_rate * weight_gradient
+            self.weights -= self.learning_rate * weight_gradient # + Regularization?
             self.bias -= self.learning_rate * bias_gradient
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -69,7 +69,7 @@ class LogisticRegressionModel:
         normalized_X = self._normalization(X)
         probabilities = self._compute_probabilities(normalized_X)
 
-        return self.class_labels[np.argmax(probabilities, axis=1)]  # highest probability class
+        return self.labels[np.argmax(probabilities, axis=1)]  # highest probability class
 
     def predict_probability(self, X: np.ndarray) -> np.ndarray:
         """Compute class membership probabilities via sigmoid.
@@ -92,10 +92,9 @@ class LogisticRegressionModel:
         return self._sigmoid_activation(linear_output)
 
     def _calculate_learning_step(
-        self, X: np.ndarray, y: np.ndarray
+        self, X: np.ndarray, y: np.ndarray, probabilities: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute gradients of binary cross-entropy loss.
+        """Compute gradients of binary cross-entropy loss.
 
         formula:
             ∂J/∂w = (1/m) * X.T @ (hθ(x) - y)
@@ -105,12 +104,35 @@ class LogisticRegressionModel:
             weight_gradient: shape (n_features, n_classes)
             bias_gradient: shape (n_classes,)
         """
-        error = self._compute_probabilities(X) - y  # (n_samples, n_classes)
+        error = probabilities - y  # (n_samples, n_classes)
 
         weight_gradient = np.dot(X.T, error) / X.shape[0]
         bias_gradient = np.mean(error, axis=0)
 
         return weight_gradient, bias_gradient
+
+    def _compute_loss(self, probabilities: np.ndarray, y: np.ndarray) -> float:
+        """Compute binary cross-entropy loss.
+
+        formula:
+            J(θ) = -(1/m) * sum(y * log(hθ(x)) + (1 - y) * log(1 - hθ(x)))
+
+        returns:
+            Loss as a float. Lower is better.
+        """
+        # Clip probabilities to avoid log(0)
+        probabilities = np.clip(probabilities, 1e-15, 1 - 1e-15)
+
+        return -np.mean(y * np.log(probabilities) + (1 - y) * np.log(1 - probabilities))
+
+    def _normalization(self, X: np.ndarray) -> np.ndarray:
+        """
+        Standardize features to have mean 0 and std 1.
+
+        formula:
+            X_normalized = (X - mean) / std
+        """
+        return (X - self.mean) / (self.std + 1e-8)  # Avoid division by zero
 
     def _sigmoid_activation(self, z: np.ndarray) -> np.ndarray:
         """
@@ -122,16 +144,6 @@ class LogisticRegressionModel:
             1 / (1 + np.exp(-z)),  # For z >= 0, compute sigmoid directly
             np.exp(z) / (1 + np.exp(z)),  # For z < 0, alternative formula to avoid overflow
         )
-
-    def _normalization(self, X: np.ndarray) -> np.ndarray:
-        """
-        Standardize features to have mean 0 and std 1.
-
-        formula:
-            X_normalized = (X - mean) / std
-        """
-        return (X - self.mean) / (self.std + 1e-8)  # Avoid division by zero
-
 
     @staticmethod
     def compare_predictions(prediction: np.ndarray, truth: np.ndarray) -> float:

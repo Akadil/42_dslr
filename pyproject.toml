@@ -13,5 +13,35 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ipykernel>=7.2.0",
+    "mypy>=1.20.0",
     "pip>=26.0.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.9",
 ]
+
+# Pytest configuration for testing
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Ruff configuration for linting and formatting
+[tool.ruff]
+line-length = 100  # same as Black
+exclude = ["tests/*"]  # exclude test files from linting
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (undefined names, unused imports)
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modern python syntax)
+]
+[tool.ruff.format]
+quote-style = "double"
+
+# Mypy configuration for static type checking
+[tool.mypy]
+strict = true
+python_version = "3.12"  # adjust to your version
