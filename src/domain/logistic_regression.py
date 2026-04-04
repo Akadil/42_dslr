@@ -26,6 +26,23 @@ class LogisticRegressionModel:
         self.std: np.ndarray | None = None
         self.labels: np.ndarray | None = None
 
+    @classmethod
+    def from_json_file(cls, file_path: str) -> "LogisticRegressionModel":
+        """Load model parameters from a JSON file."""
+        with open(file_path, encoding="utf-8") as file:
+            data = json.load(file)
+
+        model = cls(
+            learning_rate=float(data.get("learning_rate", 0.01)),
+            num_iterations=int(data.get("num_iterations", 1000)),
+        )
+        model.weights = np.asarray(data["weights"], dtype=float)
+        model.bias = np.asarray(data["bias"], dtype=float)
+        model.mean = np.asarray(data["mean"], dtype=float)
+        model.std = np.asarray(data["std"], dtype=float)
+        model.labels = np.asarray(data["labels"])
+        return model
+
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
         """
         Train model using batch gradient descent (one-vs-rest).
@@ -58,31 +75,6 @@ class LogisticRegressionModel:
             self.weights -= self.learning_rate * weight_gradient  # + Regularization?
             self.bias -= self.learning_rate * bias_gradient
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict class labels for samples in X.
-
-        returns:
-            a list of predicted class labels. Return the highest probability class for each sample.
-            shape (n_samples,). E.g. ["Gryffindor", "Slytherin", "Gryffindor", ...]
-        """
-        if self.weights is None or self.bias is None or self.mean is None or self.std is None:
-            raise ValueError("Model must be fitted before prediction.")
-
-        normalized_X = self._normalization(X)
-        probabilities = self._compute_probabilities(normalized_X)
-
-        return self.labels[np.argmax(probabilities, axis=1)]  # highest probability class
-
-    def predict_probability(self, X: np.ndarray) -> np.ndarray:
-        """Compute class membership probabilities via sigmoid.
-
-        returns:
-            shape (n_samples, n_classes). r[i][j] = P(sample i belongs to class j)
-        """
-        normalized_X = self._normalization(X)
-
-        return self._compute_probabilities(normalized_X)
-
     def _compute_probabilities(self, X: np.ndarray) -> np.ndarray:
         """Compute class membership probabilities via sigmoid.
 
@@ -112,6 +104,31 @@ class LogisticRegressionModel:
         bias_gradient = np.mean(error, axis=0)
 
         return weight_gradient, bias_gradient
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict class labels for samples in X.
+
+        returns:
+            a list of predicted class labels. Return the highest probability class for each sample.
+            shape (n_samples,). E.g. ["Gryffindor", "Slytherin", "Gryffindor", ...]
+        """
+        if self.weights is None or self.bias is None or self.mean is None or self.std is None:
+            raise ValueError("Model must be fitted before prediction.")
+
+        normalized_X = self._normalization(X)
+        probabilities = self._compute_probabilities(normalized_X)
+
+        return self.labels[np.argmax(probabilities, axis=1)]  # highest probability class
+
+    def predict_probability(self, X: np.ndarray) -> np.ndarray:
+        """Compute class membership probabilities via sigmoid.
+
+        returns:
+            shape (n_samples, n_classes). r[i][j] = P(sample i belongs to class j)
+        """
+        normalized_X = self._normalization(X)
+
+        return self._compute_probabilities(normalized_X)
 
     def _compute_loss(self, probabilities: np.ndarray, y: np.ndarray) -> float:
         """Compute binary cross-entropy loss.
@@ -147,24 +164,7 @@ class LogisticRegressionModel:
             np.exp(z) / (1 + np.exp(z)),  # For z < 0, alternative formula to avoid overflow
         )
 
-    @classmethod
-    def from_file(cls, file_path: str) -> "LogisticRegressionModel":
-        """Load model parameters from a JSON file."""
-        with open(file_path, encoding="utf-8") as file:
-            data = json.load(file)
-
-        model = cls(
-            learning_rate=float(data.get("learning_rate", 0.01)),
-            num_iterations=int(data.get("num_iterations", 1000)),
-        )
-        model.weights = np.asarray(data["weights"], dtype=float)
-        model.bias = np.asarray(data["bias"], dtype=float)
-        model.mean = np.asarray(data["mean"], dtype=float)
-        model.std = np.asarray(data["std"], dtype=float)
-        model.labels = np.asarray(data["labels"])
-        return model
-
-    def save_model(self, file_path: str) -> None:
+    def save_model_to_json(self, file_path: str) -> None:
         """Save model parameters to a JSON file."""
         if (
             self.weights is None
