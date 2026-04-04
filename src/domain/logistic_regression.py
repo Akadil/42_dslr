@@ -1,9 +1,10 @@
 import json
+from collections.abc import Generator
 
 import numpy as np
-from gradient_descent_strategy import GradientDescentStrategy
-from utils import requires_training
-from collections.abc import Generator
+
+from .gradient_descent_strategy import GradientDescentStrategy
+from .utils import requires_training
 
 # ── Constants ────────────────────────────────────────────────────────────────
 LEARNING_RATE = 0.01
@@ -31,7 +32,7 @@ class LogisticRegressionModel:
         self,
         learning_rate: float = LEARNING_RATE,
         num_iterations: int = NUM_ITERATIONS,
-        gd_strategy: GradientDescentStrategy = GradientDescentStrategy.BATCH,
+        gd_strategy: GradientDescentStrategy = GradientDescentStrategy.BATCH(),
     ) -> None:
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
@@ -139,17 +140,19 @@ class LogisticRegressionModel:
     # ── Private helpers ──────────────────────────────────────────────────────
 
     def _initialize_parameters(self, X: np.ndarray, y: np.ndarray) -> None:
-        n_features = X.shape[1]
-
         self.mean = np.mean(X, axis=0)
         self.std = np.std(X, axis=0)
         self.labels = np.unique(y)
-        self.weights = np.zeros((n_features, len(self.labels)))
+        self.weights = np.zeros((X.shape[1], len(self.labels)))
         self.bias = np.zeros(len(self.labels))
 
     def _encode_labels(self, y: np.ndarray, n_samples: int) -> np.ndarray:
         """Convert label vector to binary matrix. shape (n_samples, n_classes)."""
-        return (y.reshape(n_samples, 1) == self.labels).astype(int)
+        # Compare each label with all unique labels
+        binary_matrix = y.reshape(n_samples, 1) == self.labels
+
+        # Convert boolean matrix to integers (True -> 1, False -> 0)
+        return binary_matrix.astype(int)
 
     def _compute_probabilities(self, X: np.ndarray) -> np.ndarray:
         """Compute class membership probabilities via sigmoid.
@@ -225,6 +228,10 @@ class LogisticRegressionModel:
         """Yield batches of data for mini-batch or stochastic gradient descent."""
         n_samples = X.shape[0]
         indices = np.random.permutation(n_samples)  # Shuffle indices for randomness
+
+        if self.gd_strategy.batch_size is None:  # Batch gradient descent
+            yield X, y
+            return
 
         for start in range(0, n_samples, self.gd_strategy.batch_size):
             batch_indices = indices[start : start + self.gd_strategy.batch_size]
