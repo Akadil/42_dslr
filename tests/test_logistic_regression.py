@@ -10,8 +10,8 @@ DATASET_PATH = Path(__file__).resolve().parents[1] / "datasets" / "dataset_train
 
 # Numeric Hogwarts subject columns from the dataset schema.
 FEATURE_COLUMNS = [
-	"Arithmancy",
-	"Astronomy",
+	# "Arithmancy",
+	# "Astronomy",
 	"Herbology",
 	"Defense Against the Dark Arts",
 	"Divination",
