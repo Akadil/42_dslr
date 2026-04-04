@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from domain.gradient_descent_strategy import GradientDescentStrategy
 from src.domain.logistic_regression import LogisticRegressionModel
 
 
@@ -57,11 +58,11 @@ def _prepare_ndarrays(
 	return X_train, X_test, y_train, y_test
 
 
-def test_logistic_regression_with_80_20_split() -> None:
+def test_batch_gd_logistic_regression_with_95_5_split() -> None:
 	df = _load_dataframe()
-	train_df, test_df = _train_test_split_df(df, train_ratio=0.8, seed=42)
+	train_df, test_df = _train_test_split_df(df, train_ratio=0.95, seed=42)
 
-	expected_train_size = int(len(df) * 0.8)
+	expected_train_size = int(len(df) * 0.95)
 	expected_test_size = len(df) - expected_train_size
 	assert len(train_df) == expected_train_size
 	assert len(test_df) == expected_test_size
@@ -77,4 +78,56 @@ def test_logistic_regression_with_80_20_split() -> None:
 	assert predictions.shape == y_test.shape
 	assert set(np.unique(predictions)).issubset(set(np.unique(y_train)))
 	assert 0.0 <= accuracy <= 1.0
-	assert accuracy >= 0.35
+	assert accuracy >= 0.98
+
+def test_minibatch_gd_logistic_regression_with_80_20_split() -> None:
+	df = _load_dataframe()
+	train_df, test_df = _train_test_split_df(df, train_ratio=0.8, seed=42)
+
+	expected_train_size = int(len(df) * 0.8)
+	expected_test_size = len(df) - expected_train_size
+	assert len(train_df) == expected_train_size
+	assert len(test_df) == expected_test_size
+
+	X_train, X_test, y_train, y_test = _prepare_ndarrays(train_df, test_df)
+
+	model = LogisticRegressionModel(
+		learning_rate=0.05,
+		num_iterations=500,
+		gd_strategy=GradientDescentStrategy.MINI_BATCH(batch_size=16),
+	)
+	model.fit(X_train, y_train)
+
+	predictions = model.predict(X_test)
+	accuracy = LogisticRegressionModel.compare_predictions(predictions, y_test)
+
+	assert predictions.shape == y_test.shape
+	assert set(np.unique(predictions)).issubset(set(np.unique(y_train)))
+	assert 0.00 <= accuracy <= 1.0
+	assert accuracy >= 0.98
+
+def test_stochastic_gd_logistic_regression_with_80_20_split() -> None:
+	df = _load_dataframe()
+	train_df, test_df = _train_test_split_df(df, train_ratio=0.8, seed=42)
+
+	expected_train_size = int(len(df) * 0.8)
+	expected_test_size = len(df) - expected_train_size
+	assert len(train_df) == expected_train_size
+	assert len(test_df) == expected_test_size
+
+	X_train, X_test, y_train, y_test = _prepare_ndarrays(train_df, test_df)
+
+	model = LogisticRegressionModel(
+		learning_rate=0.05,
+		num_iterations=100,
+		gd_strategy=GradientDescentStrategy.STOCHASTIC(),
+	)
+	model.fit(X_train, y_train)
+
+	predictions = model.predict(X_test)
+	accuracy = LogisticRegressionModel.compare_predictions(predictions, y_test)
+
+	assert predictions.shape == y_test.shape
+	assert set(np.unique(predictions)).issubset(set(np.unique(y_train)))
+	assert 0.00 <= accuracy <= 1.0
+	assert accuracy >= 0.98

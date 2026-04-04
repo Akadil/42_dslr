@@ -20,7 +20,7 @@ class GradientDescentStrategy:
     @classmethod
     def MINI_BATCH(cls, batch_size: int):
         return cls(batch_size=batch_size, name="Mini-Batch")
-    
+
 
 # Personal tester code
 if __name__ == "__main__":
