@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 
 
@@ -53,7 +55,7 @@ class LogisticRegressionModel:
             probabilities = self._compute_probabilities(X)
             weight_gradient, bias_gradient = self._calculate_learning_step(X, y, probabilities)
 
-            self.weights -= self.learning_rate * weight_gradient # + Regularization?
+            self.weights -= self.learning_rate * weight_gradient  # + Regularization?
             self.bias -= self.learning_rate * bias_gradient
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -144,6 +146,49 @@ class LogisticRegressionModel:
             1 / (1 + np.exp(-z)),  # For z >= 0, compute sigmoid directly
             np.exp(z) / (1 + np.exp(z)),  # For z < 0, alternative formula to avoid overflow
         )
+
+    @classmethod
+    def from_file(cls, file_path: str) -> "LogisticRegressionModel":
+        """Load model parameters from a JSON file."""
+        with open(file_path, encoding="utf-8") as file:
+            data = json.load(file)
+
+        model = cls(
+            learning_rate=float(data.get("learning_rate", 0.01)),
+            num_iterations=int(data.get("num_iterations", 1000)),
+        )
+        model.weights = np.asarray(data["weights"], dtype=float)
+        model.bias = np.asarray(data["bias"], dtype=float)
+        model.mean = np.asarray(data["mean"], dtype=float)
+        model.std = np.asarray(data["std"], dtype=float)
+        model.labels = np.asarray(data["labels"])
+        return model
+
+    def save_model(self, file_path: str) -> None:
+        """Save model parameters to a JSON file."""
+        if (
+            self.weights is None
+            or self.bias is None
+            or self.mean is None
+            or self.std is None
+            or self.labels is None
+        ):
+            raise ValueError(
+                "Model parameters are not fully initialized. Fit the model before saving."
+            )
+
+        data = {
+            "learning_rate": self.learning_rate,
+            "num_iterations": self.num_iterations,
+            "weights": self.weights.tolist(),
+            "bias": self.bias.tolist(),
+            "mean": self.mean.tolist(),
+            "std": self.std.tolist(),
+            "labels": self.labels.tolist(),
+        }
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            json.dump(data, file)
 
     @staticmethod
     def compare_predictions(prediction: np.ndarray, truth: np.ndarray) -> float:
