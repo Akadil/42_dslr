@@ -4,7 +4,7 @@ df = pd.read_csv("datasets/dataset_train.csv", index_col=0)
 
 # Missing values per column
 missing = df.isnull().sum()
-missing_pct = (missing / len(df) * 100).round(2) # 
+missing_pct = (missing / len(df) * 100).round(2)  #
 
 print(pd.DataFrame({"missing": missing, "percentage": missing_pct})[missing > 0])
 
