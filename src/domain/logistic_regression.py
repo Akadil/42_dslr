@@ -1,7 +1,9 @@
 import json
 
 import numpy as np
+from gradient_descent_strategy import GradientDescentStrategy
 from utils import requires_training
+from collections.abc import Generator
 
 # ── Constants ────────────────────────────────────────────────────────────────
 LEARNING_RATE = 0.01
@@ -29,9 +31,11 @@ class LogisticRegressionModel:
         self,
         learning_rate: float = LEARNING_RATE,
         num_iterations: int = NUM_ITERATIONS,
+        gd_strategy: GradientDescentStrategy = GradientDescentStrategy.BATCH,
     ) -> None:
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
+        self.gd_strategy = gd_strategy
         self.weights: np.ndarray | None = None
         self.bias: np.ndarray | None = None
         self.mean: np.ndarray | None = None
@@ -54,10 +58,7 @@ class LogisticRegressionModel:
         with open(file_path, encoding="utf-8") as file:
             data = json.load(file)
 
-        model = cls(
-            learning_rate=float(data.get("learning_rate", LEARNING_RATE)),
-            num_iterations=int(data.get("num_iterations", NUM_ITERATIONS)),
-        )
+        model = cls()
         model.weights = np.asarray(data["weights"], dtype=float)
         model.bias = np.asarray(data["bias"], dtype=float)
         model.mean = np.asarray(data["mean"], dtype=float)
@@ -83,11 +84,14 @@ class LogisticRegressionModel:
 
         # Gradient descent loop
         for _ in range(self.num_iterations):
-            probabilities = self._compute_probabilities(X)
-            weight_gradient, bias_gradient = self._calculate_learning_step(X, y, probabilities)
+            # Divide data into batches depending on the strategy (batch, mini-batch, stochastic)
+            for X_batch, y_batch in self._generate_batches(X, y):
+                probabilities = self._compute_probabilities(X_batch)
 
-            self.weights -= self.learning_rate * weight_gradient  # + Regularization?
-            self.bias -= self.learning_rate * bias_gradient
+                w_step, b_step = self._calculate_learning_step(X_batch, y_batch, probabilities)
+
+                self.weights -= self.learning_rate * w_step  # + Regularization?
+                self.bias -= self.learning_rate * b_step
 
     @requires_training
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -117,8 +121,6 @@ class LogisticRegressionModel:
     def save_json(self, file_path: str) -> None:
         """Save model parameters to a JSON file."""
         data = {
-            "learning_rate": self.learning_rate,
-            "num_iterations": self.num_iterations,
             "weights": self.weights.tolist(),
             "bias": self.bias.tolist(),
             "mean": self.mean.tolist(),
@@ -128,6 +130,11 @@ class LogisticRegressionModel:
 
         with open(file_path, "w", encoding="utf-8") as file:
             json.dump(data, file)
+
+    def is_trained(self) -> None:
+        """Raise if the model has not been trained yet."""
+        if any(p is None for p in (self.weights, self.bias, self.mean, self.std, self.labels)):
+            raise ValueError("Model is not fitted yet. Call fit() first.")
 
     # ── Private helpers ──────────────────────────────────────────────────────
 
@@ -146,6 +153,10 @@ class LogisticRegressionModel:
 
     def _compute_probabilities(self, X: np.ndarray) -> np.ndarray:
         """Compute class membership probabilities via sigmoid.
+
+        formula:
+            z = X * weights + bias
+            probabilities = sigmoid(z) -> σ(z) = 1 / (1 + e^-z)
 
         returns:
             shape (n_samples, n_classes). r[i][j] = P(sample i belongs to class j)
@@ -208,10 +219,16 @@ class LogisticRegressionModel:
             np.exp(z) / (1 + np.exp(z)),  # For z < 0, alternative formula to avoid overflow
         )
 
-    def is_trained(self) -> None:
-        """Raise if the model has not been trained yet."""
-        if any(p is None for p in (self.weights, self.bias, self.mean, self.std, self.labels)):
-            raise ValueError("Model is not fitted yet. Call fit() first.")
+    def _generate_batches(
+        self, X: np.ndarray, y: np.ndarray
+    ) -> Generator[tuple[np.ndarray, np.ndarray]]:
+        """Yield batches of data for mini-batch or stochastic gradient descent."""
+        n_samples = X.shape[0]
+        indices = np.random.permutation(n_samples)  # Shuffle indices for randomness
+
+        for start in range(0, n_samples, self.gd_strategy.batch_size):
+            batch_indices = indices[start : start + self.gd_strategy.batch_size]
+            yield X[batch_indices], y[batch_indices]
 
     @staticmethod
     def compare_predictions(prediction: np.ndarray, truth: np.ndarray) -> float:
